@@ -1,0 +1,145 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --radius: 0.5rem;
+    --font-sans: "DM Sans", sans-serif;
+    --font-mono: "JetBrains Mono", monospace;
+    --font-display: "Syne", sans-serif;
+  }
+
+  * {
+    @apply border-surface-border;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply bg-surface-base text-text-primary;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-surface-base;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-border rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-text-muted;
+  }
+
+  /* Selection */
+  ::selection {
+    background-color: rgba(0, 212, 255, 0.2);
+    color: #e6edf3;
+  }
+}
+
+@layer components {
+  /* Card base */
+  .card {
+    @apply bg-surface-raised border border-surface-border rounded-lg shadow-card;
+  }
+
+  .card-hover {
+    @apply card transition-all duration-200 hover:border-brand-border hover:shadow-card-hover hover:-translate-y-0.5;
+  }
+
+  /* Metric value typography */
+  .metric-value {
+    @apply font-mono text-3xl font-semibold text-text-primary tabular-nums;
+  }
+
+  /* Badge */
+  .badge {
+    @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-2xs font-medium font-mono uppercase tracking-wide;
+  }
+
+  .badge-success { @apply badge bg-success-muted text-success; }
+  .badge-warning { @apply badge bg-warning-muted text-warning; }
+  .badge-danger  { @apply badge bg-danger-muted  text-danger;  }
+  .badge-info    { @apply badge bg-info-muted    text-info;    }
+  .badge-muted   { @apply badge bg-surface-overlay text-text-secondary; }
+
+  /* Severity indicators */
+  .severity-critical { @apply text-danger border-danger/30 bg-danger-muted; }
+  .severity-high     { @apply text-warning border-warning/30 bg-warning-muted; }
+  .severity-medium   { @apply text-info border-info/30 bg-info-muted; }
+  .severity-low      { @apply text-success border-success/30 bg-success-muted; }
+  .severity-info     { @apply text-text-secondary border-surface-border bg-surface-overlay; }
+
+  /* Input base */
+  .input {
+    @apply w-full bg-surface-overlay border border-surface-border rounded-md px-3 py-2
+           text-sm text-text-primary placeholder:text-text-muted
+           focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/30
+           transition-colors;
+  }
+
+  /* Button variants */
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium
+           bg-brand text-text-inverse hover:bg-brand-dim
+           transition-colors focus:outline-none focus:ring-2 focus:ring-brand/50;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium
+           bg-surface-overlay border border-surface-border text-text-primary
+           hover:bg-surface-hover hover:border-brand-border
+           transition-colors focus:outline-none focus:ring-2 focus:ring-brand/30;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium
+           text-text-secondary hover:text-text-primary hover:bg-surface-hover
+           transition-colors;
+  }
+
+  /* Shimmer loading skeleton */
+  .skeleton {
+    @apply bg-surface-overlay relative overflow-hidden rounded;
+  }
+  .skeleton::after {
+    content: "";
+    @apply absolute inset-0 bg-shimmer bg-[length:200%_100%] animate-shimmer;
+  }
+
+  /* Grid background */
+  .bg-grid {
+    background-image: linear-gradient(rgba(33,38,45,0.4) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(33,38,45,0.4) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  /* Glow dot (status indicator) */
+  .dot-live {
+    @apply w-2 h-2 rounded-full bg-success relative;
+  }
+  .dot-live::after {
+    content: "";
+    @apply absolute inset-0 rounded-full bg-success animate-ping opacity-75;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-brand to-info;
+  }
+
+  .border-gradient {
+    border-image: linear-gradient(135deg, #00D4FF, #0080FF) 1;
+  }
+
+  .tabular { font-variant-numeric: tabular-nums; }
+}

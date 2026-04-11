@@ -1,0 +1,263 @@
+// ReviewIQ — Prisma Schema
+// Covers: Users, Workspaces, GitHub Repos, PRs, AI Reviews, Issues, Billing
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum PlanTier {
+  FREE
+  PRO
+  TEAM
+  ENTERPRISE
+}
+
+enum ReviewStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+enum IssueSeverity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  INFO
+}
+
+enum IssueCategory {
+  SECURITY
+  PERFORMANCE
+  MAINTAINABILITY
+  BUG
+  STYLE
+  DOCUMENTATION
+  TEST_COVERAGE
+}
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+}
+
+// ─── User ─────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(cuid())
+  githubId      Int      @unique
+  username      String   @unique
+  email         String?  @unique
+  name          String?
+  avatarUrl     String?
+  githubToken   String?  // encrypted OAuth token
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  memberships   WorkspaceMember[]
+  ownedWorkspaces Workspace[]
+
+  @@map("users")
+}
+
+// ─── Workspace ────────────────────────────────────────────────────────────────
+
+model Workspace {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  avatarUrl   String?
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members     WorkspaceMember[]
+  repositories Repository[]
+  subscription Subscription?
+  usageRecords UsageRecord[]
+
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  id          String    @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        Role      @default(MEMBER)
+  joinedAt    DateTime  @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@map("workspace_members")
+}
+
+// ─── Repository ───────────────────────────────────────────────────────────────
+
+model Repository {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  githubRepoId  Int      @unique
+  fullName      String   // e.g. "org/repo"
+  name          String
+  private       Boolean  @default(false)
+  defaultBranch String   @default("main")
+  language      String?
+  webhookId     Int?
+  installedAt   DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workspace     Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  pullRequests  PullRequest[]
+
+  @@map("repositories")
+}
+
+// ─── Pull Request ─────────────────────────────────────────────────────────────
+
+model PullRequest {
+  id           String   @id @default(cuid())
+  repositoryId String
+  githubPrId   Int
+  number       Int
+  title        String
+  description  String?
+  author       String
+  authorAvatar String?
+  baseBranch   String
+  headBranch   String
+  additions    Int      @default(0)
+  deletions    Int      @default(0)
+  changedFiles Int      @default(0)
+  isDraft      Boolean  @default(false)
+  githubUrl    String
+  openedAt     DateTime
+  mergedAt     DateTime?
+  closedAt     DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  reviews      Review[]
+
+  @@unique([repositoryId, githubPrId])
+  @@map("pull_requests")
+}
+
+// ─── Review ───────────────────────────────────────────────────────────────────
+
+model Review {
+  id            String       @id @default(cuid())
+  pullRequestId String
+  status        ReviewStatus @default(PENDING)
+  summary       String?      // AI-generated summary
+  overallScore  Int?         // 0–100
+  tokensUsed    Int          @default(0)
+  modelVersion  String       @default("claude-opus-4-20250514")
+  durationMs    Int?         // how long the review took
+  errorMessage  String?
+  triggeredBy   String?      // userId or "webhook"
+  createdAt     DateTime     @default(now())
+  completedAt   DateTime?
+
+  pullRequest   PullRequest  @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+  issues        ReviewIssue[]
+  comments      ReviewComment[]
+
+  @@map("reviews")
+}
+
+// ─── Review Issue ─────────────────────────────────────────────────────────────
+
+model ReviewIssue {
+  id          String        @id @default(cuid())
+  reviewId    String
+  severity    IssueSeverity
+  category    IssueCategory
+  title       String
+  description String
+  suggestion  String?
+  filePath    String?
+  lineStart   Int?
+  lineEnd     Int?
+  codeSnippet String?
+  isResolved  Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+
+  review      Review        @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@map("review_issues")
+}
+
+// ─── Review Comment (posted back to GitHub) ───────────────────────────────────
+
+model ReviewComment {
+  id              String   @id @default(cuid())
+  reviewId        String
+  githubCommentId Int?
+  body            String
+  filePath        String?
+  line            Int?
+  postedAt        DateTime?
+  createdAt       DateTime @default(now())
+
+  review          Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@map("review_comments")
+}
+
+// ─── Subscription / Billing ───────────────────────────────────────────────────
+
+model Subscription {
+  id                String          @id @default(cuid())
+  workspaceId       String          @unique
+  plan              PlanTier        @default(FREE)
+  interval          BillingInterval @default(MONTHLY)
+  stripeCustomerId  String?
+  stripeSubId       String?
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean        @default(false)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  workspace         Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+// ─── Usage Record (per-workspace, per-month) ──────────────────────────────────
+
+model UsageRecord {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  month        String   // "2024-03"
+  reviewsCount Int      @default(0)
+  tokensUsed   Int      @default(0)
+  reviewLimit  Int      @default(50)   // based on plan
+  tokenLimit   Int      @default(500000)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, month])
+  @@map("usage_records")
+}
