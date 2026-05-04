@@ -2,32 +2,59 @@ import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { redirect, notFound } from "next/navigation";
 import {
-  AlertTriangle, Shield, Zap,
-  Wrench, BookOpen, TestTube, Code2, ChevronLeft,
+  ChevronLeft,
+  AlertTriangle,
+  Shield,
+  Zap,
+  Wrench,
+  BookOpen,
+  TestTube,
+  Code2,
 } from "lucide-react";
 import Link from "next/link";
 
 export const metadata = { title: "Review Detail" };
 
 const SEVERITY_ORDER = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"] as const;
-const SEVERITY_STYLE: Record<string, string> = {
-  CRITICAL: "severity-critical",
-  HIGH:     "severity-high",
-  MEDIUM:   "severity-medium",
-  LOW:      "severity-low",
-  INFO:     "severity-info",
-};
-const CATEGORY_ICONS: Record<string, React.ElementType> = {
-  SECURITY:        Shield,
-  PERFORMANCE:     Zap,
+
+const SEV_CONFIG: Record<string, { color: string; bg: string; label: string }> =
+  {
+    CRITICAL: {
+      color: "#FF3333",
+      bg: "rgba(255,51,51,0.06)",
+      label: "[CRITICAL]",
+    },
+    HIGH: { color: "#FFB800", bg: "rgba(255,184,0,0.06)", label: "[HIGH]    " },
+    MEDIUM: {
+      color: "#00CCFF",
+      bg: "rgba(0,204,255,0.06)",
+      label: "[MEDIUM]  ",
+    },
+    LOW: { color: "#00FF41", bg: "rgba(0,255,65,0.06)", label: "[LOW]     " },
+    INFO: { color: "#3D6B3D", bg: "rgba(61,107,61,0.06)", label: "[INFO]    " },
+  };
+
+const CAT_ICONS: Record<string, React.ElementType> = {
+  SECURITY: Shield,
+  PERFORMANCE: Zap,
   MAINTAINABILITY: Wrench,
-  BUG:             AlertTriangle,
-  STYLE:           Code2,
-  DOCUMENTATION:   BookOpen,
-  TEST_COVERAGE:   TestTube,
+  BUG: AlertTriangle,
+  STYLE: Code2,
+  DOCUMENTATION: BookOpen,
+  TEST_COVERAGE: TestTube,
 };
 
-export default async function ReviewDetailPage({ params }: { params: { id: string } }) {
+const M = { fontFamily: "'JetBrains Mono', monospace" };
+const S = {
+  fontFamily: "Playfair Display, Georgia, serif",
+  textShadow: "none",
+};
+
+export default async function ReviewDetailPage({
+  params,
+}: {
+  params: { id: string };
+}) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
@@ -41,82 +68,182 @@ export default async function ReviewDetailPage({ params }: { params: { id: strin
 
   if (!review) notFound();
 
-  const grouped = SEVERITY_ORDER.reduce((acc, sev) => {
-    acc[sev] = review.issues.filter((i) => i.severity === sev);
-    return acc;
-  }, {} as Record<string, typeof review.issues>);
+  const grouped = SEVERITY_ORDER.reduce(
+    (acc, sev) => {
+      acc[sev] = review.issues.filter((i) => i.severity === sev);
+      return acc;
+    },
+    {} as Record<string, typeof review.issues>,
+  );
 
   const scoreColor =
-    (review.overallScore ?? 0) >= 80 ? "text-success"
-    : (review.overallScore ?? 0) >= 60 ? "text-warning"
-    : "text-danger";
+    (review.overallScore ?? 0) >= 80
+      ? "#00FF41"
+      : (review.overallScore ?? 0) >= 60
+        ? "#FFB800"
+        : "#FF3333";
 
   return (
-    <div className="p-6 animate-fade-in space-y-5 max-w-5xl">
-      <div>
-        <Link href="/reviews" className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-text-secondary mb-4 transition-colors">
-          <ChevronLeft className="w-3.5 h-3.5" /> Back to Reviews
-        </Link>
+    <div className="p-6 space-y-5 max-w-4xl animate-fade-in" style={M}>
+      {/* Back */}
+      <Link
+        href="/reviews"
+        className="inline-flex items-center gap-1.5 text-[10px] text-[#3D6B3D] hover:text-[#00FF41] transition-colors mb-2"
+      >
+        <ChevronLeft className="w-3 h-3" /> cd ../reviews
+      </Link>
+
+      {/* Header */}
+      <div className="border border-[#1A1A1A] bg-[#080808] p-5">
         <div className="flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="badge badge-muted">#{review.pullRequest.number}</span>
-              <span className="text-xs text-text-muted">{review.pullRequest.repository.fullName}</span>
+          <div className="flex-1 min-w-0 mr-6">
+            <div className="flex items-center gap-3 mb-2 text-[10px]">
+              <span className="text-[#00FF41]">[REVIEW]</span>
+              <span className="text-[#3D6B3D]">
+                pr #{review.pullRequest.number}
+              </span>
+              <span className="text-[#1F3D1F]">
+                {review.pullRequest.repository.fullName}
+              </span>
             </div>
-            <h1 className="font-display text-xl font-bold text-text-primary">{review.pullRequest.title}</h1>
-            <p className="text-xs text-text-muted mt-1">
-              Reviewed {review.completedAt ? new Date(review.completedAt).toLocaleString() : "in progress"}
-              {" · "}{review.tokensUsed.toLocaleString()} tokens used
-            </p>
+            <h1 className="text-2xl font-black text-[#E8FFE8] mb-2" style={S}>
+              {review.pullRequest.title}
+            </h1>
+            <div className="flex items-center gap-4 text-[10px] text-[#1F3D1F]">
+              <span>
+                completed:{" "}
+                {review.completedAt
+                  ? new Date(review.completedAt).toLocaleString()
+                  : "in progress"}
+              </span>
+              <span>tokens: {review.tokensUsed.toLocaleString()}</span>
+              <span>
+                duration:{" "}
+                {review.durationMs
+                  ? `${(review.durationMs / 1000).toFixed(1)}s`
+                  : "—"}
+              </span>
+            </div>
           </div>
           <div className="text-right shrink-0">
-            <div className={`font-display text-5xl font-bold ${scoreColor}`}>{review.overallScore ?? "—"}</div>
-            <p className="text-xs text-text-muted mt-0.5">Overall Score</p>
+            <div
+              className="text-6xl font-black tabular-nums"
+              style={{
+                ...M,
+                color: scoreColor,
+                textShadow: `0 0 30px ${scoreColor}`,
+              }}
+            >
+              {review.overallScore ?? "—"}
+            </div>
+            <p className="text-[10px] text-[#1F3D1F] mt-1">// overall_score</p>
           </div>
         </div>
       </div>
 
+      {/* Summary */}
       {review.summary && (
-        <div className="card p-5 border-l-2 border-brand">
-          <p className="text-xs font-semibold text-brand uppercase tracking-widest mb-2">AI Summary</p>
-          <p className="text-sm text-text-secondary leading-relaxed">{review.summary}</p>
+        <div
+          className="border border-[#003B00] bg-[#050505] p-4"
+          style={{ boxShadow: "inset 0 0 20px rgba(0,255,65,0.03)" }}
+        >
+          <p className="text-[10px] text-[#00FF41] mb-2">// ai_summary</p>
+          <p className="text-xs text-[#7FBF7F] leading-relaxed">
+            {review.summary}
+          </p>
         </div>
       )}
 
-      <div className="space-y-4">
+      {/* Issue counts */}
+      <div className="grid grid-cols-5 gap-px bg-[#1A1A1A]">
+        {SEVERITY_ORDER.map((sev) => {
+          const cfg = SEV_CONFIG[sev];
+          const count = grouped[sev]?.length ?? 0;
+          return (
+            <div key={sev} className="bg-[#080808] p-3 text-center">
+              <div
+                className="text-xl font-bold tabular-nums"
+                style={{ color: cfg.color }}
+              >
+                {count}
+              </div>
+              <div
+                className="text-[10px] mt-1"
+                style={{ color: cfg.color, opacity: 0.6 }}
+              >
+                {sev.toLowerCase()}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Issues */}
+      <div className="space-y-3">
         {SEVERITY_ORDER.map((sev) => {
           const issues = grouped[sev];
           if (!issues?.length) return null;
+          const cfg = SEV_CONFIG[sev];
           return (
-            <div key={sev} className="card overflow-hidden">
-              <div className="flex items-center gap-2 px-5 py-3 border-b border-surface-border">
-                <span className={`badge ${SEVERITY_STYLE[sev]}`}>{sev}</span>
-                <span className="text-xs text-text-muted">{issues.length} issue{issues.length > 1 ? "s" : ""}</span>
+            <div
+              key={sev}
+              className="border bg-[#080808]"
+              style={{ borderColor: `${cfg.color}20` }}
+            >
+              <div
+                className="flex items-center gap-3 px-4 py-2.5 border-b"
+                style={{ borderColor: `${cfg.color}15`, background: cfg.bg }}
+              >
+                <span
+                  className="text-[10px] font-bold"
+                  style={{ color: cfg.color }}
+                >
+                  {cfg.label}
+                </span>
+                <span className="text-[10px] text-[#1F3D1F]">
+                  {issues.length} issue{issues.length > 1 ? "s" : ""}
+                </span>
               </div>
-              <div className="divide-y divide-surface-border">
+              <div className="divide-y divide-[#0D0D0D]">
                 {issues.map((issue) => {
-                  const Icon = CATEGORY_ICONS[issue.category] ?? AlertTriangle;
+                  const Icon = CAT_ICONS[issue.category] ?? AlertTriangle;
                   return (
-                    <div key={issue.id} className="px-5 py-4 space-y-2">
+                    <div key={issue.id} className="px-4 py-4 space-y-2">
                       <div className="flex items-start gap-3">
-                        <Icon className="w-4 h-4 text-text-muted mt-0.5 shrink-0" />
+                        <Icon
+                          className="w-3.5 h-3.5 mt-0.5 shrink-0"
+                          style={{ color: cfg.color }}
+                        />
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-sm font-semibold text-text-primary">{issue.title}</p>
-                            <span className="badge badge-muted">{issue.category.replace("_", " ")}</span>
+                          <div className="flex items-center gap-3 flex-wrap mb-1">
+                            <span className="text-xs font-bold text-[#E8FFE8]">
+                              {issue.title}
+                            </span>
+                            <span className="text-[10px] text-[#3D6B3D]">
+                              {issue.category.replace("_", " ").toLowerCase()}
+                            </span>
                             {issue.filePath && (
-                              <span className="text-xs font-mono text-text-muted">{issue.filePath}{issue.lineStart ? `:${issue.lineStart}` : ""}</span>
+                              <span className="text-[10px] text-[#1F3D1F]">
+                                {issue.filePath}
+                                {issue.lineStart ? `:${issue.lineStart}` : ""}
+                              </span>
                             )}
                           </div>
-                          <p className="text-sm text-text-secondary mt-1 leading-relaxed">{issue.description}</p>
+                          <p className="text-xs text-[#3D6B3D] leading-relaxed">
+                            {issue.description}
+                          </p>
                           {issue.suggestion && (
-                            <div className="mt-2 p-3 rounded-md bg-success-muted border border-success/20">
-                              <p className="text-xs font-semibold text-success mb-1">Suggestion</p>
-                              <p className="text-xs text-text-secondary">{issue.suggestion}</p>
+                            <div className="mt-2 pl-3 border-l border-[#003B00]">
+                              <p className="text-[10px] text-[#00FF41] mb-0.5">
+                                // suggestion
+                              </p>
+                              <p className="text-xs text-[#7FBF7F]">
+                                {issue.suggestion}
+                              </p>
                             </div>
                           )}
                           {issue.codeSnippet && (
-                            <pre className="mt-2 p-3 rounded-md bg-surface-overlay border border-surface-border text-xs font-mono text-text-secondary overflow-x-auto">
+                            <pre className="mt-2 p-3 bg-[#050505] border border-[#1A1A1A] text-[10px] text-[#3D6B3D] overflow-x-auto">
                               {issue.codeSnippet}
                             </pre>
                           )}

@@ -1,384 +1,241 @@
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
-import { User, Building2, Bell, Shield, Trash2, Github } from "lucide-react";
+import { Github, Shield, Bell, Trash2, User, Building2 } from "lucide-react";
 
 export const metadata = { title: "Settings" };
 
-const glassCard = {
-  background: "rgba(15,17,23,0.7)",
-  backdropFilter: "blur(20px)",
-  border: "1px solid #21262D",
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04), 0 4px 24px rgba(0,0,0,0.3)",
+const M = { fontFamily: "'JetBrains Mono', monospace" };
+const S = {
+  fontFamily: "Playfair Display, Georgia, serif",
+  textShadow: "none",
 };
+
+function Section({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="border border-[#1A1A1A] bg-[#080808]">
+      <div className="px-5 py-3 border-b border-[#1A1A1A] bg-[#0A0A0A] flex items-center gap-2">
+        <span className="text-[10px] text-[#00FF41]">[CONFIG]</span>
+        <span className="text-[10px] text-[#3D6B3D]">// {label}</span>
+      </div>
+      <div className="p-5">{children}</div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  defaultValue,
+  placeholder,
+}: {
+  label: string;
+  defaultValue?: string;
+  placeholder?: string;
+}) {
+  return (
+    <div>
+      <label className="text-[10px] text-[#1F3D1F] block mb-1.5">
+        // {label}
+      </label>
+      <input
+        className="w-full bg-[#050505] border border-[#1A1A1A] px-3 py-2.5 text-xs text-[#E8FFE8] placeholder:text-[#1F3D1F] focus:outline-none focus:border-[#003B00] transition-colors"
+        style={M}
+        defaultValue={defaultValue}
+        placeholder={placeholder}
+      />
+    </div>
+  );
+}
 
 export default async function SettingsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-
   const workspaceId = user.memberships[0]?.workspaceId;
   if (!workspaceId) redirect("/onboarding");
-
   const workspace = await db.workspace.findUnique({
     where: { id: workspaceId },
   });
 
   return (
-    <div
-      className="min-h-screen p-8 animate-fade-in"
-      style={{
-        background:
-          "radial-gradient(ellipse at 30% 10%, rgba(0,212,255,0.03) 0%, transparent 50%), #0A0C10",
-      }}
-    >
-      <div className="max-w-2xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="text-center mb-10">
-          <h1 className="font-display text-4xl font-bold text-text-primary mb-2">
-            Settings
-          </h1>
-          <p className="text-sm text-text-muted">
-            Manage your account and workspace preferences
-          </p>
+    <div className="p-6 max-w-2xl space-y-5 animate-fade-in" style={M}>
+      {/* Header */}
+      <div className="border-b border-[#1A1A1A] pb-4">
+        <div className="text-[10px] text-[#3D6B3D] mb-1">
+          <span className="text-[#00FF41]">[SETTINGS]</span> system
+          configuration
         </div>
+        <h1 className="text-3xl font-black text-[#E8FFE8]" style={S}>
+          Config
+        </h1>
+      </div>
 
-        {/* Profile */}
-        <div className="rounded-2xl p-7 space-y-6" style={glassCard}>
-          <div className="flex items-center gap-3 pb-4 border-b border-surface-border">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{
-                background: "rgba(0,212,255,0.1)",
-                border: "1px solid rgba(0,212,255,0.2)",
-              }}
-            >
-              <User className="w-4 h-4 text-brand" />
-            </div>
-            <div>
-              <h2 className="text-sm font-semibold text-text-primary">
-                Profile
-              </h2>
-              <p className="text-xs text-text-muted">
-                Your personal information
-              </p>
-            </div>
-          </div>
-
-          {/* Avatar */}
-          <div className="flex items-center gap-5">
-            <div className="relative">
-              <div
-                className="w-20 h-20 rounded-2xl overflow-hidden border-2"
-                style={{
-                  borderColor: "rgba(0,212,255,0.3)",
-                  boxShadow: "0 0 20px rgba(0,212,255,0.1)",
-                }}
-              >
-                {user.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={user.avatarUrl}
-                    alt={user.username}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div
-                    className="w-full h-full flex items-center justify-center text-2xl font-display font-bold text-brand"
-                    style={{ background: "rgba(0,212,255,0.1)" }}
-                  >
-                    {user.username[0].toUpperCase()}
-                  </div>
-                )}
-              </div>
-              <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-success border-2 border-surface-base" />
-            </div>
-            <div>
-              <p className="font-display text-xl font-bold text-text-primary">
-                {user.name ?? user.username}
-              </p>
-              <p className="text-sm text-text-muted font-mono">
-                @{user.username}
-              </p>
-              <div className="flex items-center gap-1.5 mt-1.5">
-                <Github className="w-3.5 h-3.5 text-text-muted" />
-                <span className="text-xs text-text-muted">
-                  Connected via GitHub
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            {[
-              {
-                label: "Display Name",
-                value: user.name ?? "",
-                placeholder: "Your name",
-              },
-              {
-                label: "Email",
-                value: user.email ?? "",
-                placeholder: "your@email.com",
-              },
-            ].map((field) => (
-              <div key={field.label}>
-                <label className="text-xs font-medium text-text-muted block mb-2">
-                  {field.label}
-                </label>
-                <input
-                  className="w-full px-4 py-2.5 rounded-xl text-sm text-text-primary placeholder:text-text-muted transition-all outline-none"
-                  style={{
-                    background: "rgba(22,27,34,0.8)",
-                    border: "1px solid #21262D",
-                  }}
-                  defaultValue={field.value}
-                  placeholder={field.placeholder}
-                />
-              </div>
-            ))}
-          </div>
-
-          <div className="flex justify-end">
-            <button
-              className="px-6 py-2.5 rounded-xl text-sm font-semibold text-black transition-all"
-              style={{
-                background: "#00D4FF",
-                boxShadow: "0 0 20px rgba(0,212,255,0.3)",
-              }}
-            >
-              Save Changes
-            </button>
-          </div>
-        </div>
-
-        {/* Workspace */}
-        <div className="rounded-2xl p-7 space-y-6" style={glassCard}>
-          <div className="flex items-center gap-3 pb-4 border-b border-surface-border">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{
-                background: "rgba(0,212,255,0.1)",
-                border: "1px solid rgba(0,212,255,0.2)",
-              }}
-            >
-              <Building2 className="w-4 h-4 text-brand" />
-            </div>
-            <div>
-              <h2 className="text-sm font-semibold text-text-primary">
-                Workspace
-              </h2>
-              <p className="text-xs text-text-muted">
-                Configure your team workspace
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            {[
-              {
-                label: "Workspace Name",
-                value: workspace?.name ?? "",
-                placeholder: "My Workspace",
-              },
-              {
-                label: "Slug",
-                value: workspace?.slug ?? "",
-                placeholder: "my-workspace",
-              },
-            ].map((field) => (
-              <div key={field.label}>
-                <label className="text-xs font-medium text-text-muted block mb-2">
-                  {field.label}
-                </label>
-                <input
-                  className="w-full px-4 py-2.5 rounded-xl text-sm text-text-primary placeholder:text-text-muted transition-all outline-none"
-                  style={{
-                    background: "rgba(22,27,34,0.8)",
-                    border: "1px solid #21262D",
-                  }}
-                  defaultValue={field.value}
-                  placeholder={field.placeholder}
-                />
-              </div>
-            ))}
-          </div>
-
-          <div className="flex justify-end">
-            <button
-              className="px-6 py-2.5 rounded-xl text-sm font-semibold text-black transition-all"
-              style={{
-                background: "#00D4FF",
-                boxShadow: "0 0 20px rgba(0,212,255,0.3)",
-              }}
-            >
-              Update Workspace
-            </button>
-          </div>
-        </div>
-
-        {/* Notifications */}
-        <div className="rounded-2xl p-7 space-y-5" style={glassCard}>
-          <div className="flex items-center gap-3 pb-4 border-b border-surface-border">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{
-                background: "rgba(0,212,255,0.1)",
-                border: "1px solid rgba(0,212,255,0.2)",
-              }}
-            >
-              <Bell className="w-4 h-4 text-brand" />
-            </div>
-            <div>
-              <h2 className="text-sm font-semibold text-text-primary">
-                Notifications
-              </h2>
-              <p className="text-xs text-text-muted">
-                Control what alerts you receive
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            {[
-              {
-                label: "Review completed",
-                desc: "Get notified when an AI review finishes",
-                on: true,
-              },
-              {
-                label: "Critical issues found",
-                desc: "Alert when CRITICAL severity issues are detected",
-                on: true,
-              },
-              {
-                label: "Weekly digest",
-                desc: "Weekly summary of your team's review activity",
-                on: false,
-              },
-              {
-                label: "Usage warnings",
-                desc: "Alert when approaching plan limits",
-                on: true,
-              },
-            ].map((item) => (
-              <div
-                key={item.label}
-                className="flex items-center justify-between py-3.5 border-b border-surface-border last:border-0"
-              >
-                <div>
-                  <p className="text-sm font-medium text-text-primary">
-                    {item.label}
-                  </p>
-                  <p className="text-xs text-text-muted mt-0.5">{item.desc}</p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                  <input
-                    type="checkbox"
-                    defaultChecked={item.on}
-                    className="sr-only peer"
-                  />
-                  <div
-                    className="w-10 h-5.5 rounded-full transition-colors peer-checked:bg-brand bg-surface-border
-                    after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full
-                    after:h-4.5 after:w-4.5 after:transition-all peer-checked:after:translate-x-[18px]"
-                    style={{ height: "22px", width: "40px" }}
-                  />
-                </label>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Security */}
-        <div className="rounded-2xl p-7" style={glassCard}>
-          <div className="flex items-center gap-3 pb-4 border-b border-surface-border mb-5">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{
-                background: "rgba(0,212,255,0.1)",
-                border: "1px solid rgba(0,212,255,0.2)",
-              }}
-            >
-              <Shield className="w-4 h-4 text-brand" />
-            </div>
-            <div>
-              <h2 className="text-sm font-semibold text-text-primary">
-                Security
-              </h2>
-              <p className="text-xs text-text-muted">
-                Authentication and access
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Github className="w-5 h-5 text-text-secondary" />
-              <div>
-                <p className="text-sm font-medium text-text-primary">
-                  GitHub Connection
-                </p>
-                <p className="text-xs text-text-muted">
-                  Signed in as @{user.username}
-                </p>
-              </div>
-            </div>
-            <span
-              className="px-3 py-1 rounded-full text-xs font-semibold font-mono"
-              style={{
-                background: "rgba(63,185,80,0.12)",
-                color: "#3FB950",
-                border: "1px solid rgba(63,185,80,0.2)",
-              }}
-            >
-              ● Connected
-            </span>
-          </div>
-        </div>
-
-        {/* Danger zone */}
-        <div
-          className="rounded-2xl p-7"
-          style={{ ...glassCard, borderColor: "rgba(248,81,73,0.2)" }}
-        >
+      {/* Profile */}
+      <Section label="user.profile">
+        <div className="flex items-center gap-4 mb-5 pb-5 border-b border-[#1A1A1A]">
           <div
-            className="flex items-center gap-3 pb-4 border-b mb-5"
-            style={{ borderColor: "rgba(248,81,73,0.15)" }}
+            className="w-16 h-16 border border-[#003B00] overflow-hidden flex items-center justify-center bg-[#050505]"
+            style={{ boxShadow: "0 0 15px rgba(0,255,65,0.1)" }}
           >
+            {user.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={user.avatarUrl}
+                alt={user.username}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span className="text-xl font-bold text-[#00FF41]">
+                {user.username[0].toUpperCase()}
+              </span>
+            )}
+          </div>
+          <div>
+            <p className="text-sm font-bold text-[#E8FFE8]">
+              {user.name ?? user.username}
+            </p>
+            <p className="text-[10px] text-[#3D6B3D] mt-0.5">
+              @{user.username}
+            </p>
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <Github className="w-3 h-3 text-[#1F3D1F]" />
+              <span className="text-[10px] text-[#1F3D1F]">
+                authenticated via github oauth
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <Field
+            label="display_name"
+            defaultValue={user.name ?? ""}
+            placeholder="Your name"
+          />
+          <Field
+            label="email"
+            defaultValue={user.email ?? ""}
+            placeholder="your@email.com"
+          />
+        </div>
+        <div className="flex justify-end">
+          <button className="px-5 py-2 text-[10px] font-bold uppercase tracking-wider bg-[#00FF41] text-[#050505] hover:bg-[#39FF14] transition-colors">
+            $ save_changes
+          </button>
+        </div>
+      </Section>
+
+      {/* Workspace */}
+      <Section label="workspace.config">
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <Field
+            label="workspace_name"
+            defaultValue={workspace?.name ?? ""}
+            placeholder="My Workspace"
+          />
+          <Field
+            label="slug"
+            defaultValue={workspace?.slug ?? ""}
+            placeholder="my-workspace"
+          />
+        </div>
+        <div className="flex justify-end">
+          <button className="px-5 py-2 text-[10px] font-bold uppercase tracking-wider bg-[#00FF41] text-[#050505] hover:bg-[#39FF14] transition-colors">
+            $ update_workspace
+          </button>
+        </div>
+      </Section>
+
+      {/* Notifications */}
+      <Section label="notifications.config">
+        <div className="space-y-0 divide-y divide-[#0D0D0D]">
+          {[
+            {
+              key: "review_completed",
+              desc: "notify when AI review finishes",
+              on: true,
+            },
+            {
+              key: "critical_issues",
+              desc: "alert on CRITICAL severity findings",
+              on: true,
+            },
+            {
+              key: "weekly_digest",
+              desc: "weekly summary of review activity",
+              on: false,
+            },
+            {
+              key: "usage_warnings",
+              desc: "alert when approaching plan limits",
+              on: true,
+            },
+          ].map((item) => (
             <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{
-                background: "rgba(248,81,73,0.1)",
-                border: "1px solid rgba(248,81,73,0.2)",
-              }}
+              key={item.key}
+              className="flex items-center justify-between py-3"
             >
-              <Trash2 className="w-4 h-4 text-danger" />
+              <div>
+                <p className="text-xs text-[#7FBF7F]">{item.key}</p>
+                <p className="text-[10px] text-[#1F3D1F] mt-0.5">
+                  // {item.desc}
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  defaultChecked={item.on}
+                  className="sr-only peer"
+                />
+                <div className="w-8 h-4 bg-[#1A1A1A] border border-[#1A1A1A] peer-checked:border-[#003B00] peer-checked:bg-[#003B00] transition-all relative">
+                  <div className="absolute top-0.5 left-0.5 w-3 h-3 bg-[#3D6B3D] peer-checked:bg-[#00FF41] transition-all peer-checked:translate-x-4" />
+                </div>
+              </label>
             </div>
+          ))}
+        </div>
+      </Section>
+
+      {/* Security */}
+      <Section label="security.oauth">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Github className="w-4 h-4 text-[#3D6B3D]" />
             <div>
-              <h2 className="text-sm font-semibold text-danger">Danger Zone</h2>
-              <p className="text-xs text-text-muted">Irreversible actions</p>
+              <p className="text-xs text-[#7FBF7F]">github_connection</p>
+              <p className="text-[10px] text-[#1F3D1F] mt-0.5">
+                // signed in as @{user.username}
+              </p>
             </div>
           </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-text-primary">
-                Delete Workspace
-              </p>
-              <p className="text-xs text-text-muted mt-0.5">
-                Permanently delete all data. This cannot be undone.
-              </p>
-            </div>
-            <button
-              className="px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all"
-              style={{
-                background: "rgba(248,81,73,0.1)",
-                color: "#F85149",
-                border: "1px solid rgba(248,81,73,0.3)",
-              }}
-            >
-              <Trash2 className="w-4 h-4" />
-              Delete
-            </button>
+          <span className="text-[10px] px-2 py-1 border border-[#003B00] text-[#00FF41]">
+            [OK] connected
+          </span>
+        </div>
+      </Section>
+
+      {/* Danger zone */}
+      <div className="border border-[#FF3333]/20 bg-[#080808]">
+        <div className="px-5 py-3 border-b border-[#FF3333]/10 bg-[#3D0000]/20 flex items-center gap-2">
+          <span className="text-[10px] text-[#FF3333]">[DANGER]</span>
+          <span className="text-[10px] text-[#FF3333]/50">
+            // irreversible_actions
+          </span>
+        </div>
+        <div className="p-5 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-[#FF3333]/80">delete_workspace</p>
+            <p className="text-[10px] text-[#1F3D1F] mt-0.5">
+              // permanently removes all data — cannot be undone
+            </p>
           </div>
+          <button className="flex items-center gap-2 px-4 py-2 text-[10px] font-bold uppercase border border-[#FF3333]/30 text-[#FF3333] hover:bg-[#FF3333] hover:text-[#050505] transition-all">
+            <Trash2 className="w-3 h-3" /> rm -rf workspace
+          </button>
         </div>
       </div>
     </div>

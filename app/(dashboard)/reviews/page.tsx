@@ -1,22 +1,35 @@
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
-import { GitPullRequest, CheckCircle2, XCircle, Clock, Loader2 } from "lucide-react";
+import {
+  GitPullRequest,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Loader2,
+} from "lucide-react";
 import Link from "next/link";
 
 export const metadata = { title: "Reviews" };
 
-const STATUS_CONFIG = {
-  COMPLETED:   { label: "Completed",   icon: CheckCircle2, cls: "badge-success" },
-  IN_PROGRESS: { label: "In Progress", icon: Loader2,      cls: "badge-info"    },
-  PENDING:     { label: "Pending",     icon: Clock,        cls: "badge-muted"   },
-  FAILED:      { label: "Failed",      icon: XCircle,      cls: "badge-danger"  },
+const STATUS = {
+  COMPLETED: { label: "[DONE]  ", color: "#00FF41" },
+  IN_PROGRESS: { label: "[RUNNING]", color: "#FFB800" },
+  PENDING: { label: "[QUEUE] ", color: "#3D6B3D" },
+  FAILED: { label: "[ERROR] ", color: "#FF3333" },
+};
+
+const SEV_COLOR: Record<string, string> = {
+  CRITICAL: "#FF3333",
+  HIGH: "#FFB800",
+  MEDIUM: "#00CCFF",
+  LOW: "#00FF41",
+  INFO: "#3D6B3D",
 };
 
 export default async function ReviewsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-
   const workspaceId = user.memberships[0]?.workspaceId;
   if (!workspaceId) redirect("/onboarding");
 
@@ -31,94 +44,95 @@ export default async function ReviewsPage() {
   });
 
   return (
-    <div className="p-6 animate-fade-in space-y-5">
+    <div
+      className="p-6 space-y-5 animate-fade-in"
+      style={{ fontFamily: "'JetBrains Mono', monospace" }}
+    >
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between border-b border-[#1A1A1A] pb-4">
         <div>
-          <h1 className="font-display text-2xl font-bold text-text-primary">Reviews</h1>
-          <p className="text-sm text-text-secondary mt-0.5">
-            {reviews.length} total reviews
-          </p>
+          <div className="text-[10px] text-[#3D6B3D] mb-1">
+            <span className="text-[#00FF41]">[REVIEWS]</span> {reviews.length}{" "}
+            total records
+          </div>
+          <h1
+            className="text-3xl font-black text-[#E8FFE8]"
+            style={{
+              fontFamily: "Playfair Display, Georgia, serif",
+              textShadow: "none",
+            }}
+          >
+            Review Log
+          </h1>
+        </div>
+        <div className="text-[10px] text-[#1F3D1F]">
+          $ reviewiq list --workspace=current
         </div>
       </div>
 
       {/* Table */}
-      <div className="card overflow-hidden">
-        <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] text-2xs font-semibold uppercase tracking-widest text-text-muted border-b border-surface-border px-5 py-3 gap-4">
-          <span>PR</span>
-          <span>Title</span>
-          <span>Score</span>
-          <span>Issues</span>
-          <span>Status</span>
-          <span>Date</span>
+      <div className="border border-[#1A1A1A] bg-[#080808]">
+        {/* Table header */}
+        <div className="grid grid-cols-[60px_40px_1fr_80px_60px_80px_90px] gap-4 px-4 py-2 border-b border-[#1A1A1A] bg-[#0A0A0A] text-[10px] text-[#1F3D1F] uppercase tracking-widest">
+          <span>status</span>
+          <span>pr</span>
+          <span>title</span>
+          <span>repo</span>
+          <span>score</span>
+          <span>issues</span>
+          <span>date</span>
         </div>
 
         {reviews.length === 0 ? (
           <div className="flex flex-col items-center py-16 text-center">
-            <GitPullRequest className="w-10 h-10 text-text-muted mb-3" />
-            <p className="text-sm text-text-secondary">No reviews yet</p>
-            <p className="text-xs text-text-muted mt-1">
-              Connect a repository to start getting AI reviews
+            <GitPullRequest className="w-8 h-8 text-[#1F3D1F] mb-3" />
+            <p className="text-xs text-[#3D6B3D]">// no reviews found</p>
+            <p className="text-[10px] text-[#1F3D1F] mt-1">
+              connect a repository to start getting AI reviews
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-surface-border">
+          <div className="divide-y divide-[#0D0D0D]">
             {reviews.map((review) => {
-              const cfg = STATUS_CONFIG[review.status];
-              const StatusIcon = cfg.icon;
+              const st = STATUS[review.status];
               return (
                 <Link
                   key={review.id}
                   href={`/reviews/${review.id}`}
-                  className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] items-center px-5 py-3.5 gap-4 hover:bg-surface-hover transition-colors"
+                  className="grid grid-cols-[60px_40px_1fr_80px_60px_80px_90px] gap-4 items-center px-4 py-3 hover:bg-[#0A0A0A] transition-colors group"
                 >
-                  {/* PR # */}
-                  <span className="text-xs font-mono text-text-muted">
+                  <span className="text-[10px]" style={{ color: st.color }}>
+                    {st.label}
+                  </span>
+                  <span className="text-[10px] text-[#3D6B3D]">
                     #{review.pullRequest.number}
                   </span>
-
-                  {/* Title + repo */}
                   <div className="min-w-0">
-                    <p className="text-sm text-text-primary font-medium truncate">
+                    <p className="text-xs text-[#E8FFE8] truncate group-hover:text-[#00FF41] transition-colors">
                       {review.pullRequest.title}
                     </p>
-                    <p className="text-xs text-text-muted truncate">
-                      {review.pullRequest.repository.fullName}
-                    </p>
                   </div>
-
-                  {/* Score */}
-                  <div className="text-right">
-                    {review.overallScore != null ? (
-                      <span
-                        className={`text-sm font-mono font-semibold ${
-                          review.overallScore >= 80
-                            ? "text-success"
-                            : review.overallScore >= 60
-                            ? "text-warning"
-                            : "text-danger"
-                        }`}
-                      >
-                        {review.overallScore}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-text-muted">—</span>
-                    )}
-                  </div>
-
-                  {/* Issue count */}
-                  <span className="text-xs font-mono text-text-secondary text-right">
-                    {review._count.issues}
+                  <span className="text-[10px] text-[#3D6B3D] truncate">
+                    {review.pullRequest.repository.name}
                   </span>
-
-                  {/* Status */}
-                  <span className={`badge ${cfg.cls} gap-1`}>
-                    <StatusIcon className="w-3 h-3" />
-                    {cfg.label}
+                  <span
+                    className="text-xs font-bold tabular-nums"
+                    style={{
+                      color:
+                        (review.overallScore ?? 0) >= 80
+                          ? "#00FF41"
+                          : (review.overallScore ?? 0) >= 60
+                            ? "#FFB800"
+                            : "#FF3333",
+                      textShadow: "0 0 10px currentColor",
+                    }}
+                  >
+                    {review.overallScore ?? "—"}
                   </span>
-
-                  {/* Date */}
-                  <span className="text-xs font-mono text-text-muted text-right whitespace-nowrap">
+                  <span className="text-[10px] text-[#3D6B3D]">
+                    {review._count.issues} found
+                  </span>
+                  <span className="text-[10px] text-[#1F3D1F]">
                     {new Date(review.createdAt).toLocaleDateString("en-US", {
                       month: "short",
                       day: "numeric",

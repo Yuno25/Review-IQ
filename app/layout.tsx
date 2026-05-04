@@ -1,29 +1,22 @@
 import type { Metadata } from "next";
-import { DM_Sans, JetBrains_Mono, Syne } from "next/font/google";
+import { JetBrains_Mono, Playfair_Display } from "next/font/google";
 import "./globals.css";
 
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  variable: "--font-sans",
-  weight: ["300", "400", "500", "600", "700"],
-});
-
-const jetbrainsMono = JetBrains_Mono({
+const jetbrains = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
-  weight: ["400", "500", "600"],
+  weight: ["400", "500", "600", "700"],
 });
 
-const syne = Syne({
+const playfair = Playfair_Display({
   subsets: ["latin"],
-  variable: "--font-display",
-  weight: ["600", "700", "800"],
+  variable: "--font-serif",
+  weight: ["700", "800", "900"],
 });
 
 export const metadata: Metadata = {
   title: { default: "ReviewIQ", template: "%s | ReviewIQ" },
   description: "AI-powered code review and PR assistant for engineering teams",
-  keywords: ["code review", "AI", "pull requests", "developer tools"],
 };
 
 export default function RootLayout({
@@ -34,7 +27,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${dmSans.variable} ${jetbrainsMono.variable} ${syne.variable} font-sans bg-surface-base text-text-primary antialiased`}
+        className={`${jetbrains.variable} ${playfair.variable} font-mono bg-[#050505] text-[#E8FFE8] antialiased`}
       >
         {children}
       </body>

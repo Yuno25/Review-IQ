@@ -1,90 +1,77 @@
 ﻿/** @type {import('tailwindcss').Config} */
 const config = {
-  darkMode: ['class'],
+  darkMode: ["class"],
   content: [
-    './pages/**/*.{ts,tsx}',
-    './components/**/*.{ts,tsx}',
-    './app/**/*.{ts,tsx}',
-    './src/**/*.{ts,tsx}',
+    "./pages/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+    "./app/**/*.{ts,tsx}",
   ],
   theme: {
-    container: {
-      center: true,
-      padding: '2rem',
-      screens: { '2xl': '1400px' },
-    },
     extend: {
       colors: {
-        brand: {
-          DEFAULT: '#00D4FF',
-          dim: '#00A8CC',
-          muted: 'rgba(0,212,255,0.1)',
-          border: 'rgba(0,212,255,0.2)',
+        // Core terminal palette
+        term: {
+          black:   "#050505",   // deepest bg
+          void:    "#080808",   // page bg
+          base:    "#0A0A0A",   // card bg
+          raised:  "#0D0D0D",   // elevated
+          border:  "#1A1A1A",   // borders
+          dim:     "#111111",   // hover states
+          green:   "#00FF41",   // primary accent
+          bright:  "#39FF14",   // bright green
+          mid:     "#00CC33",   // mid green
+          dark:    "#003B00",   // dark green surface
+          muted:   "#005500",   // muted green
+          glow:    "rgba(0,255,65,0.15)",  // glow
+          glowDim: "rgba(0,255,65,0.06)",  // subtle glow
         },
-        surface: {
-          base: '#0A0C10',
-          raised: '#0F1117',
-          overlay: '#161B22',
-          border: '#21262D',
-          hover: '#1C2128',
+        // Text hierarchy
+        ink: {
+          primary:   "#E8FFE8",   // near white with green tint
+          secondary: "#7FBF7F",   // mid green-grey
+          muted:     "#3D6B3D",   // dim
+          ghost:     "#1F3D1F",   // barely visible
         },
-        success: { DEFAULT: '#3FB950', muted: 'rgba(63,185,80,0.12)' },
-        warning: { DEFAULT: '#D29922', muted: 'rgba(210,153,34,0.12)' },
-        danger:  { DEFAULT: '#F85149', muted: 'rgba(248,81,73,0.12)'  },
-        info:    { DEFAULT: '#58A6FF', muted: 'rgba(88,166,255,0.12)' },
-        text: {
-          primary:   '#E6EDF3',
-          secondary: '#8B949E',
-          muted:     '#484F58',
-          inverse:   '#0A0C10',
-        },
+        // Semantic (all green-shifted)
+        ok:   { DEFAULT: "#00FF41", dim: "#003B00" },
+        warn: { DEFAULT: "#FFB800", dim: "#3D2D00" },
+        err:  { DEFAULT: "#FF3333", dim: "#3D0000" },
+        info: { DEFAULT: "#00CCFF", dim: "#003340" },
       },
       fontFamily: {
-        sans:    ["'DM Sans'", 'sans-serif'],
-        mono:    ["'JetBrains Mono'", 'monospace'],
-        display: ["'Syne'", 'sans-serif'],
+        mono:    ["'JetBrains Mono'", "monospace"],
+        serif:   ["'Playfair Display'", "Georgia", "serif"],
+        sans:    ["'JetBrains Mono'", "monospace"], // fallback
       },
       fontSize: {
-        '2xs': ['0.625rem', { lineHeight: '0.875rem' }],
-      },
-      borderRadius: {
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        "2xs": ["0.6rem", { lineHeight: "0.875rem" }],
+        "xs":  ["0.7rem", { lineHeight: "1rem" }],
       },
       boxShadow: {
-        glow:         '0 0 20px rgba(0,212,255,0.15)',
-        'glow-lg':    '0 0 40px rgba(0,212,255,0.2)',
-        card:         '0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.5)',
-        'card-hover': '0 4px 16px rgba(0,0,0,0.5)',
+        glow:     "0 0 20px rgba(0,255,65,0.2), 0 0 40px rgba(0,255,65,0.08)",
+        "glow-sm": "0 0 10px rgba(0,255,65,0.15)",
+        "glow-lg": "0 0 60px rgba(0,255,65,0.15), 0 0 120px rgba(0,255,65,0.06)",
+        inset:    "inset 0 1px 0 rgba(0,255,65,0.08)",
       },
       keyframes: {
-        'accordion-down': { from: { height: '0' }, to: { height: 'var(--radix-accordion-content-height)' } },
-        'accordion-up':   { from: { height: 'var(--radix-accordion-content-height)' }, to: { height: '0' } },
-        'fade-in':        { from: { opacity: '0', transform: 'translateY(8px)' }, to: { opacity: '1', transform: 'translateY(0)' } },
-        'slide-in':       { from: { transform: 'translateX(-100%)' }, to: { transform: 'translateX(0)' } },
-        shimmer:          { '0%': { backgroundPosition: '-200% 0' }, '100%': { backgroundPosition: '200% 0' } },
-        'spin-slow':      { from: { transform: 'rotate(0deg)' }, to: { transform: 'rotate(360deg)' } },
+        "blink":     { "0%,100%": { opacity: "1" }, "50%": { opacity: "0" } },
+        "scanline":  { "0%": { transform: "translateY(-100%)" }, "100%": { transform: "translateY(100vh)" } },
+        "flicker":   { "0%,19%,21%,23%,25%,54%,56%,100%": { opacity: "1" }, "20%,24%,55%": { opacity: "0.6" } },
+        "fade-in":   { from: { opacity: "0", transform: "translateY(8px)" }, to: { opacity: "1", transform: "translateY(0)" } },
+        "type-in":   { from: { width: "0" }, to: { width: "100%" } },
+        "glow-pulse":{ "0%,100%": { boxShadow: "0 0 10px rgba(0,255,65,0.2)" }, "50%": { boxShadow: "0 0 25px rgba(0,255,65,0.5)" } },
+        "matrix":    { "0%": { opacity: "1" }, "100%": { opacity: "0", transform: "translateY(20px)" } },
       },
       animation: {
-        'accordion-down': 'accordion-down 0.2s ease-out',
-        'accordion-up':   'accordion-up 0.2s ease-out',
-        'fade-in':        'fade-in 0.4s ease-out',
-        'slide-in':       'slide-in 0.3s ease-out',
-        shimmer:          'shimmer 2s infinite linear',
-        'spin-slow':      'spin-slow 3s linear infinite',
-      },
-      backgroundImage: {
-        'grid-pattern':   'linear-gradient(rgba(33,38,45,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(33,38,45,0.5) 1px, transparent 1px)',
-        'brand-gradient': 'linear-gradient(135deg, #00D4FF 0%, #0080FF 100%)',
-        shimmer:          'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.04) 50%, transparent 100%)',
-      },
-      backgroundSize: {
-        grid: '24px 24px',
+        "blink":      "blink 1s step-end infinite",
+        "scanline":   "scanline 8s linear infinite",
+        "flicker":    "flicker 6s infinite",
+        "fade-in":    "fade-in 0.4s ease-out",
+        "glow-pulse": "glow-pulse 2s ease-in-out infinite",
       },
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [require("tailwindcss-animate")],
 };
 
 module.exports = config;

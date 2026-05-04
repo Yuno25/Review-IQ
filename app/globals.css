@@ -2,16 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Playfair+Display:wght@700;800;900&display=swap");
+
 @layer base {
   :root {
-    --radius: 0.5rem;
-    --font-sans: "DM Sans", sans-serif;
-    --font-mono: "JetBrains Mono", monospace;
-    --font-display: "Syne", sans-serif;
+    --green: #00ff41;
+    --green-dim: #00cc33;
+    --green-dark: #003b00;
+    --black: #050505;
+    --scanline-opacity: 0.03;
   }
 
   * {
-    @apply border-surface-border;
+    box-sizing: border-box;
   }
 
   html {
@@ -19,127 +22,244 @@
   }
 
   body {
-    @apply bg-surface-base text-text-primary;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    background: #050505;
+    color: #e8ffe8;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    /* CRT phosphor glow on text */
+    text-shadow: 0 0 8px rgba(0, 255, 65, 0.15);
+    /* Subtle noise texture */
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
   }
 
-  /* Scrollbar styling */
+  /* Scanline overlay */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.08) 2px,
+      rgba(0, 0, 0, 0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* Scrollbar */
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 4px;
+    height: 4px;
   }
   ::-webkit-scrollbar-track {
-    @apply bg-surface-base;
+    background: #050505;
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-surface-border rounded-full;
+    background: #003b00;
+    border-radius: 0;
   }
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-text-muted;
+    background: #00ff41;
   }
 
   /* Selection */
   ::selection {
-    background-color: rgba(0, 212, 255, 0.2);
-    color: #e6edf3;
+    background: rgba(0, 255, 65, 0.2);
+    color: #00ff41;
   }
 }
 
 @layer components {
-  /* Card base */
+  /* ── Cards ── */
   .card {
-    @apply bg-surface-raised border border-surface-border rounded-lg shadow-card;
+    @apply bg-term-base border border-term-border;
+    box-shadow: inset 0 1px 0 rgba(0, 255, 65, 0.04);
+  }
+  .card-glow {
+    @apply card;
+    border-color: rgba(0, 255, 65, 0.15);
+    box-shadow:
+      0 0 20px rgba(0, 255, 65, 0.08),
+      inset 0 1px 0 rgba(0, 255, 65, 0.06);
   }
 
-  .card-hover {
-    @apply card transition-all duration-200 hover:border-brand-border hover:shadow-card-hover hover:-translate-y-0.5;
+  /* ── Terminal prompt ── */
+  .prompt::before {
+    content: "> ";
+    color: #00ff41;
+    font-weight: 700;
   }
 
-  /* Metric value typography */
-  .metric-value {
-    @apply font-mono text-3xl font-semibold text-text-primary tabular-nums;
+  /* ── Blinking cursor ── */
+  .cursor::after {
+    content: "█";
+    @apply text-term-green animate-blink ml-0.5;
+    font-size: 0.8em;
   }
 
-  /* Badge */
+  /* ── Badges ── */
   .badge {
-    @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-2xs font-medium font-mono uppercase tracking-wide;
+    @apply inline-flex items-center gap-1 px-1.5 py-0.5 text-2xs font-mono uppercase tracking-wider;
+    border: 1px solid currentColor;
+  }
+  .badge-ok {
+    @apply text-ok   border-ok/30   bg-ok-dim/50;
+  }
+  .badge-warn {
+    @apply text-warn border-warn/30 bg-warn-dim/50;
+  }
+  .badge-err {
+    @apply text-err  border-err/30  bg-err-dim/50;
+  }
+  .badge-info {
+    @apply text-info border-info/30 bg-info-dim/50;
+  }
+  .badge-dim {
+    @apply text-ink-secondary border-term-border bg-term-raised;
   }
 
-  .badge-success { @apply badge bg-success-muted text-success; }
-  .badge-warning { @apply badge bg-warning-muted text-warning; }
-  .badge-danger  { @apply badge bg-danger-muted  text-danger;  }
-  .badge-info    { @apply badge bg-info-muted    text-info;    }
-  .badge-muted   { @apply badge bg-surface-overlay text-text-secondary; }
+  /* ── Severity ── */
+  .sev-critical {
+    @apply text-err  bg-err-dim  border border-err/20;
+  }
+  .sev-high {
+    @apply text-warn bg-warn-dim border border-warn/20;
+  }
+  .sev-medium {
+    @apply text-info bg-info-dim border border-info/20;
+  }
+  .sev-low {
+    @apply text-ok   bg-ok-dim   border border-ok/20;
+  }
+  .sev-info {
+    @apply text-ink-secondary bg-term-raised border border-term-border;
+  }
 
-  /* Severity indicators */
-  .severity-critical { @apply text-danger border-danger/30 bg-danger-muted; }
-  .severity-high     { @apply text-warning border-warning/30 bg-warning-muted; }
-  .severity-medium   { @apply text-info border-info/30 bg-info-muted; }
-  .severity-low      { @apply text-success border-success/30 bg-success-muted; }
-  .severity-info     { @apply text-text-secondary border-surface-border bg-surface-overlay; }
-
-  /* Input base */
+  /* ── Inputs ── */
   .input {
-    @apply w-full bg-surface-overlay border border-surface-border rounded-md px-3 py-2
-           text-sm text-text-primary placeholder:text-text-muted
-           focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/30
-           transition-colors;
+    @apply w-full bg-term-black border border-term-border px-3 py-2
+           text-ink-primary placeholder:text-ink-ghost
+           focus:outline-none focus:border-term-green focus:shadow-glow-sm
+           transition-all font-mono text-xs;
+    border-radius: 0;
   }
 
-  /* Button variants */
+  /* ── Buttons ── */
   .btn-primary {
-    @apply inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium
-           bg-brand text-text-inverse hover:bg-brand-dim
-           transition-colors focus:outline-none focus:ring-2 focus:ring-brand/50;
+    @apply inline-flex items-center gap-2 px-4 py-2 text-xs font-mono font-semibold
+           bg-term-green text-term-black uppercase tracking-wider
+           hover:bg-term-bright hover:shadow-glow transition-all;
+    border-radius: 0;
   }
-
   .btn-secondary {
-    @apply inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium
-           bg-surface-overlay border border-surface-border text-text-primary
-           hover:bg-surface-hover hover:border-brand-border
-           transition-colors focus:outline-none focus:ring-2 focus:ring-brand/30;
+    @apply inline-flex items-center gap-2 px-4 py-2 text-xs font-mono font-semibold
+           bg-transparent border border-term-green text-term-green uppercase tracking-wider
+           hover:bg-term-glow transition-all;
+    border-radius: 0;
   }
-
   .btn-ghost {
-    @apply inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium
-           text-text-secondary hover:text-text-primary hover:bg-surface-hover
-           transition-colors;
+    @apply inline-flex items-center gap-2 px-3 py-1.5 text-xs font-mono
+           text-ink-secondary hover:text-term-green hover:bg-term-dark transition-all;
+    border-radius: 0;
   }
 
-  /* Shimmer loading skeleton */
-  .skeleton {
-    @apply bg-surface-overlay relative overflow-hidden rounded;
-  }
-  .skeleton::after {
-    content: "";
-    @apply absolute inset-0 bg-shimmer bg-[length:200%_100%] animate-shimmer;
+  /* ── Terminal label ── */
+  .term-label {
+    @apply text-2xs font-mono uppercase tracking-widest text-ink-muted;
   }
 
-  /* Grid background */
-  .bg-grid {
-    background-image: linear-gradient(rgba(33,38,45,0.4) 1px, transparent 1px),
-                      linear-gradient(90deg, rgba(33,38,45,0.4) 1px, transparent 1px);
-    background-size: 24px 24px;
+  /* ── Section divider ── */
+  .term-divider {
+    @apply border-t border-term-border my-6;
+    border-image: linear-gradient(
+        90deg,
+        transparent,
+        #003b00 20%,
+        #003b00 80%,
+        transparent
+      )
+      1;
   }
 
-  /* Glow dot (status indicator) */
+  /* ── Metric value ── */
+  .metric-val {
+    @apply font-mono text-3xl font-bold text-term-green tabular-nums;
+    text-shadow: 0 0 20px rgba(0, 255, 65, 0.4);
+  }
+
+  /* ── Live dot ── */
   .dot-live {
-    @apply w-2 h-2 rounded-full bg-success relative;
+    @apply w-2 h-2 rounded-full bg-term-green relative inline-block;
+    box-shadow: 0 0 6px #00ff41;
   }
   .dot-live::after {
     content: "";
-    @apply absolute inset-0 rounded-full bg-success animate-ping opacity-75;
+    @apply absolute inset-0 rounded-full bg-term-green animate-ping opacity-60;
+  }
+
+  /* ── Skeleton ── */
+  .skeleton {
+    @apply bg-term-border relative overflow-hidden;
+    animation: shimmer 2s infinite;
+    background: linear-gradient(90deg, #1a1a1a 0%, #252525 50%, #1a1a1a 100%);
+    background-size: 200% 100%;
   }
 }
 
 @layer utilities {
-  .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-brand to-info;
+  .text-glow {
+    text-shadow: 0 0 20px rgba(0, 255, 65, 0.5);
   }
-
-  .border-gradient {
-    border-image: linear-gradient(135deg, #00D4FF, #0080FF) 1;
+  .text-glow-sm {
+    text-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
   }
+  .border-glow {
+    box-shadow:
+      0 0 0 1px rgba(0, 255, 65, 0.3),
+      0 0 20px rgba(0, 255, 65, 0.1);
+  }
+  .bg-scanline {
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.06) 2px,
+      rgba(0, 0, 0, 0.06) 4px
+    );
+  }
+  .font-terminal {
+    font-family: "JetBrains Mono", monospace;
+  }
+  .font-editorial {
+    font-family: "Playfair Display", Georgia, serif;
+    text-shadow: none;
+  }
+}
 
-  .tabular { font-variant-numeric: tabular-nums; }
+/* ── GitHub login button ── */
+.gh-login-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 11px;
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  background: #00ff41;
+  color: #050505;
+  border: 1px solid #00ff41;
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+.gh-login-btn:hover {
+  background: #050505;
+  color: #00ff41;
+  box-shadow: 0 0 20px rgba(0, 255, 65, 0.25);
 }

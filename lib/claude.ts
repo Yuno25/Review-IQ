@@ -1,12 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
+import { postReviewComment } from "@/lib/github-comments";
 import { IssueSeverity, IssueCategory, ReviewStatus } from "@prisma/client";
 
 export const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
 });
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface PRDiff {
   filename: string;
@@ -32,90 +31,78 @@ export interface ReviewResult {
   }[];
 }
 
-// ─── System prompt ────────────────────────────────────────────────────────────
+const SYSTEM_PROMPT = `You are ReviewIQ, an expert code reviewer. Analyze pull request diffs and return ONLY valid JSON — no markdown, no prose.
 
-const SYSTEM_PROMPT = `You are ReviewIQ, an expert code reviewer with deep knowledge of software engineering best practices, security vulnerabilities, performance optimization, and clean code principles.
-
-Your job is to analyze pull request diffs and provide structured, actionable feedback.
-
-You MUST respond with valid JSON only — no markdown, no prose outside the JSON. The JSON schema is:
-
+JSON schema:
 {
-  "summary": "string — 2-4 sentence overview of what this PR does and overall quality",
-  "overallScore": number — 0 to 100 (100 = perfect code),
+  "summary": "2-4 sentence overview of what this PR does and overall quality",
+  "overallScore": 0-100,
   "issues": [
     {
       "severity": "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO",
       "category": "SECURITY" | "PERFORMANCE" | "MAINTAINABILITY" | "BUG" | "STYLE" | "DOCUMENTATION" | "TEST_COVERAGE",
-      "title": "string — short issue title",
-      "description": "string — clear explanation of the problem",
-      "suggestion": "string — concrete fix or improvement",
+      "title": "short issue title",
+      "description": "clear explanation of the problem",
+      "suggestion": "concrete fix",
       "filePath": "string | null",
-      "lineStart": number | null,
-      "lineEnd": number | null,
-      "codeSnippet": "string | null — relevant code snippet"
+      "lineStart": "number | null",
+      "lineEnd": "number | null",
+      "codeSnippet": "string | null"
     }
   ]
 }
 
 Severity guide:
-- CRITICAL: Security vulnerabilities, data loss risks, crashes
-- HIGH: Bugs, logic errors, major performance issues
-- MEDIUM: Code smells, missing error handling, minor performance
-- LOW: Style issues, naming conventions
-- INFO: Suggestions, optimizations, best practices`;
+- CRITICAL: security vulnerabilities, data loss, crashes
+- HIGH: bugs, logic errors, major performance issues
+- MEDIUM: missing error handling, minor performance
+- LOW: style issues, naming conventions
+- INFO: suggestions, best practices`;
 
-// ─── Build diff prompt ────────────────────────────────────────────────────────
-
-function buildDiffPrompt(
-  prTitle: string,
-  prDescription: string | null,
-  diffs: PRDiff[]
+function buildPrompt(
+  title: string,
+  description: string | null,
+  diffs: PRDiff[],
 ): string {
   const diffText = diffs
-    .slice(0, 20) // Limit to 20 files max
+    .slice(0, 20)
     .map((d) => {
-      const patch = d.patch
-        ? d.patch.slice(0, 3000) // Truncate large patches
-        : "(binary or no changes)";
+      const patch = d.patch?.slice(0, 3000) ?? "(binary or no changes)";
       return `### File: ${d.filename} (+${d.additions} -${d.deletions})\n\`\`\`diff\n${patch}\n\`\`\``;
     })
     .join("\n\n");
 
-  return `# Pull Request: ${prTitle}
-
-**Description:** ${prDescription || "No description provided"}
-
-**Changed Files (${diffs.length} total):**
-
-${diffText}
-
-Please review this pull request and return your analysis as JSON.`;
+  return `# Pull Request: ${title}\n**Description:** ${description || "No description"}\n\n${diffText}\n\nReturn JSON analysis only.`;
 }
 
-// ─── Main review function (streaming) ────────────────────────────────────────
+// ─── Check if workspace has premium plan ──────────────────────────────────────
+async function isPremium(workspaceId: string): Promise<boolean> {
+  const sub = await db.subscription.findUnique({ where: { workspaceId } });
+  return (
+    sub?.plan === "PRO" || sub?.plan === "TEAM" || sub?.plan === "ENTERPRISE"
+  );
+}
 
+// ─── Main review function ─────────────────────────────────────────────────────
 export async function runReview(
   reviewId: string,
   prTitle: string,
   prDescription: string | null,
   diffs: PRDiff[],
-  onChunk?: (chunk: string) => void
+  onChunk?: (chunk: string) => void,
 ): Promise<ReviewResult> {
   const startTime = Date.now();
 
-  // Mark review as in-progress
   await db.review.update({
     where: { id: reviewId },
     data: { status: ReviewStatus.IN_PROGRESS },
   });
 
   try {
-    const prompt = buildDiffPrompt(prTitle, prDescription, diffs);
+    const prompt = buildPrompt(prTitle, prDescription, diffs);
     let fullResponse = "";
     let tokensUsed = 0;
 
-    // Stream the review
     const stream = await anthropic.messages.stream({
       model: "claude-opus-4-20250514",
       max_tokens: 4096,
@@ -138,14 +125,12 @@ export async function runReview(
       (finalMessage.usage?.input_tokens ?? 0) +
       (finalMessage.usage?.output_tokens ?? 0);
 
-    // Parse the JSON response
     const cleanJson = fullResponse.replace(/```json\n?|```/g, "").trim();
     const result: ReviewResult = JSON.parse(cleanJson);
-
     const durationMs = Date.now() - startTime;
 
-    // Save to DB
-    await db.review.update({
+    // Save review + issues
+    const updatedReview = await db.review.update({
       where: { id: reviewId },
       data: {
         status: ReviewStatus.COMPLETED,
@@ -168,13 +153,25 @@ export async function runReview(
           })),
         },
       },
+      include: { pullRequest: { include: { repository: true } } },
     });
+
+    // Post GitHub comment if workspace is on premium plan
+    const premium = await isPremium(
+      updatedReview.pullRequest.repository.workspaceId,
+    );
+    if (premium) {
+      try {
+        await postReviewComment(reviewId);
+      } catch (e) {
+        console.error("Failed to post GitHub comment:", e);
+        // Non-fatal — review is still saved
+      }
+    }
 
     return result;
   } catch (err) {
-    const errorMessage =
-      err instanceof Error ? err.message : "Unknown error";
-
+    const errorMessage = err instanceof Error ? err.message : "Unknown error";
     await db.review.update({
       where: { id: reviewId },
       data: {
@@ -183,17 +180,15 @@ export async function runReview(
         completedAt: new Date(),
       },
     });
-
     throw err;
   }
 }
 
 // ─── Fetch PR diffs from GitHub ───────────────────────────────────────────────
-
 export async function fetchPRDiffs(
   repoFullName: string,
   prNumber: number,
-  githubToken: string
+  githubToken: string,
 ): Promise<PRDiff[]> {
   const res = await fetch(
     `https://api.github.com/repos/${repoFullName}/pulls/${prNumber}/files`,
@@ -202,9 +197,8 @@ export async function fetchPRDiffs(
         Authorization: `Bearer ${githubToken}`,
         Accept: "application/vnd.github.v3+json",
       },
-    }
+    },
   );
-
   if (!res.ok) throw new Error(`GitHub API error: ${res.status}`);
   return res.json();
 }
