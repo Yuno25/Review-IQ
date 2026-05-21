@@ -1,8 +1,6 @@
-import Anthropic from "@anthropic-ai/sdk";
+import Groq from "groq-sdk";
 
-export const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! });
 
 export interface RepoFile {
   path: string;
@@ -20,11 +18,11 @@ export interface RepoReviewResult {
     languages: Record<string, number>;
   };
   categories: {
-    security:        { score: number; summary: string };
-    performance:     { score: number; summary: string };
+    security: { score: number; summary: string };
+    performance: { score: number; summary: string };
     maintainability: { score: number; summary: string };
-    testCoverage:    { score: number; summary: string };
-    documentation:   { score: number; summary: string };
+    testCoverage: { score: number; summary: string };
+    documentation: { score: number; summary: string };
   };
   criticalIssues: {
     severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
@@ -38,52 +36,37 @@ export interface RepoReviewResult {
   recommendations: string[];
 }
 
-// ─── Fetch repo file tree from GitHub ────────────────────────────────────────
-
-export async function fetchRepoTree(
-  fullName: string,
-  branch: string,
-  token: string
-): Promise<{ path: string; type: string; size: number; sha: string }[]> {
-  const res = await fetch(
-    `https://api.github.com/repos/${fullName}/git/trees/${branch}?recursive=1`,
-    { headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github.v3+json" } }
-  );
-  if (!res.ok) throw new Error(`GitHub tree API error: ${res.status}`);
-  const data = await res.json();
-  return data.tree ?? [];
-}
-
-// ─── Fetch file content ───────────────────────────────────────────────────────
-
-async function fetchFileContent(
-  fullName: string,
-  path: string,
-  token: string
-): Promise<string> {
-  const res = await fetch(
-    `https://api.github.com/repos/${fullName}/contents/${path}`,
-    { headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github.v3+json" } }
-  );
-  if (!res.ok) return "";
-  const data = await res.json();
-  if (data.encoding === "base64" && data.content) {
-    return Buffer.from(data.content, "base64").toString("utf-8");
-  }
-  return "";
-}
-
-// ─── Pick important files to review ──────────────────────────────────────────
-
 const IMPORTANT_EXTENSIONS = new Set([
-  ".ts", ".tsx", ".js", ".jsx", ".py", ".go", ".rs", ".java",
-  ".rb", ".php", ".cs", ".cpp", ".c", ".swift", ".kt",
+  ".ts",
+  ".tsx",
+  ".js",
+  ".jsx",
+  ".py",
+  ".go",
+  ".rs",
+  ".java",
+  ".rb",
+  ".php",
+  ".cs",
+  ".cpp",
+  ".c",
+  ".swift",
+  ".kt",
 ]);
 
 const SKIP_PATTERNS = [
-  "node_modules", ".next", "dist", "build", ".git",
-  "coverage", "__pycache__", ".venv", "vendor",
-  "package-lock.json", "yarn.lock", "pnpm-lock.yaml",
+  "node_modules",
+  ".next",
+  "dist",
+  "build",
+  ".git",
+  "coverage",
+  "__pycache__",
+  ".venv",
+  "vendor",
+  "package-lock.json",
+  "yarn.lock",
+  "pnpm-lock.yaml",
 ];
 
 function shouldSkip(path: string): boolean {
@@ -98,40 +81,93 @@ function isCodeFile(path: string): boolean {
 function getLanguage(path: string): string {
   const ext = path.split(".").pop()?.toLowerCase() ?? "unknown";
   const map: Record<string, string> = {
-    ts: "TypeScript", tsx: "TypeScript", js: "JavaScript", jsx: "JavaScript",
-    py: "Python", go: "Go", rs: "Rust", java: "Java", rb: "Ruby",
-    php: "PHP", cs: "C#", cpp: "C++", c: "C", swift: "Swift", kt: "Kotlin",
+    ts: "TypeScript",
+    tsx: "TypeScript",
+    js: "JavaScript",
+    jsx: "JavaScript",
+    py: "Python",
+    go: "Go",
+    rs: "Rust",
+    java: "Java",
+    rb: "Ruby",
+    php: "PHP",
+    cs: "C#",
+    cpp: "C++",
+    c: "C",
+    swift: "Swift",
+    kt: "Kotlin",
   };
   return map[ext] ?? ext.toUpperCase();
 }
 
-// ─── Main repo review function ────────────────────────────────────────────────
+export async function fetchRepoTree(
+  fullName: string,
+  branch: string,
+  token: string,
+): Promise<{ path: string; type: string; size: number; sha: string }[]> {
+  const res = await fetch(
+    `https://api.github.com/repos/${fullName}/git/trees/${branch}?recursive=1`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+    },
+  );
+  if (!res.ok) throw new Error(`GitHub tree API error: ${res.status}`);
+  const data = await res.json();
+  return data.tree ?? [];
+}
+
+async function fetchFileContent(
+  fullName: string,
+  path: string,
+  token: string,
+): Promise<string> {
+  const res = await fetch(
+    `https://api.github.com/repos/${fullName}/contents/${path}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+    },
+  );
+  if (!res.ok) return "";
+  const data = await res.json();
+  if (data.encoding === "base64" && data.content) {
+    return Buffer.from(data.content, "base64").toString("utf-8");
+  }
+  return "";
+}
 
 export async function runRepoReview(
   fullName: string,
   branch: string,
   token: string,
-  onProgress?: (msg: string) => void
+  onProgress?: (msg: string) => void,
 ): Promise<RepoReviewResult> {
-
   onProgress?.(`[INIT] Fetching repository tree for ${fullName}...`);
 
-  // Get file tree
   const tree = await fetchRepoTree(fullName, branch, token);
   const codeFiles = tree
-    .filter((f) => f.type === "blob" && !shouldSkip(f.path) && isCodeFile(f.path) && f.size < 100000)
-    .slice(0, 30); // Max 30 files
+    .filter(
+      (f) =>
+        f.type === "blob" &&
+        !shouldSkip(f.path) &&
+        isCodeFile(f.path) &&
+        f.size < 100000,
+    )
+    .slice(0, 30);
 
   onProgress?.(`[OK] Found ${codeFiles.length} source files to analyze`);
 
-  // Count languages
   const languages: Record<string, number> = {};
   for (const f of codeFiles) {
     const lang = getLanguage(f.path);
     languages[lang] = (languages[lang] ?? 0) + 1;
   }
 
-  // Fetch file contents (batch of 15 most important)
   const filesToRead = codeFiles.slice(0, 15);
   onProgress?.(`[SCAN] Reading ${filesToRead.length} key files...`);
 
@@ -139,35 +175,42 @@ export async function runRepoReview(
   for (const f of filesToRead) {
     const content = await fetchFileContent(fullName, f.path, token);
     if (content) {
-      fileContents.push({ path: f.path, content: content.slice(0, 3000), size: f.size });
+      fileContents.push({
+        path: f.path,
+        content: content.slice(0, 3000),
+        size: f.size,
+      });
     }
   }
 
-  // Count total lines
-  const totalLines = fileContents.reduce((sum, f) => sum + f.content.split("\n").length, 0);
+  const totalLines = fileContents.reduce(
+    (sum, f) => sum + f.content.split("\n").length,
+    0,
+  );
 
-  onProgress?.(`[AI] Sending to Claude Opus 4 for analysis...`);
+  onProgress?.(`[AI] Sending to Llama 3.3 70B for analysis...`);
 
-  // Build prompt
-  const filesSummary = fileContents.map((f) =>
-    `### ${f.path}\n\`\`\`\n${f.content}\n\`\`\``
-  ).join("\n\n");
+  const filesSummary = fileContents
+    .map((f) => `### ${f.path}\n\`\`\`\n${f.content}\n\`\`\``)
+    .join("\n\n");
 
-  const prompt = `You are ReviewIQ performing a comprehensive code quality audit of the repository: ${fullName}
+  const prompt = `You are ReviewIQ performing a comprehensive code quality audit of: ${fullName}
 
 Repository stats:
 - Files analyzed: ${fileContents.length}
-- Languages: ${Object.entries(languages).map(([l, c]) => `${l}(${c})`).join(", ")}
+- Languages: ${Object.entries(languages)
+    .map(([l, c]) => `${l}(${c})`)
+    .join(", ")}
 - Total lines sampled: ${totalLines}
 
 Source files:
 ${filesSummary}
 
-Perform a thorough code quality audit and return ONLY valid JSON matching this exact schema:
+Return ONLY valid JSON matching this exact schema. No markdown. No backticks. No explanation. Just raw JSON:
 {
-  "overallScore": number (0-100),
-  "healthGrade": "A" | "B" | "C" | "D" | "F",
-  "summary": "3-5 sentence executive summary of the codebase quality",
+  "overallScore": number between 0 and 100,
+  "healthGrade": "A" or "B" or "C" or "D" or "F",
+  "summary": "3-5 sentence executive summary of codebase quality",
   "categories": {
     "security":        { "score": number, "summary": "2 sentence assessment" },
     "performance":     { "score": number, "summary": "2 sentence assessment" },
@@ -177,32 +220,28 @@ Perform a thorough code quality audit and return ONLY valid JSON matching this e
   },
   "criticalIssues": [
     {
-      "severity": "CRITICAL"|"HIGH"|"MEDIUM"|"LOW",
-      "category": "SECURITY"|"PERFORMANCE"|"MAINTAINABILITY"|"BUG"|"STYLE"|"DOCUMENTATION"|"TEST_COVERAGE",
+      "severity": "CRITICAL" or "HIGH" or "MEDIUM" or "LOW",
+      "category": "SECURITY" or "PERFORMANCE" or "MAINTAINABILITY" or "BUG" or "STYLE" or "DOCUMENTATION" or "TEST_COVERAGE",
       "title": "short title",
       "description": "clear description",
       "suggestion": "concrete fix",
-      "filePath": "path/to/file or null"
+      "filePath": "path or null"
     }
   ],
   "strengths": ["strength 1", "strength 2", "strength 3"],
-  "recommendations": ["recommendation 1", "recommendation 2", "recommendation 3", "recommendation 4"]
-}
+  "recommendations": ["rec 1", "rec 2", "rec 3", "rec 4"]
+}`;
 
-Be thorough, specific, and actionable. Return JSON only.`;
-
-  const response = await anthropic.messages.create({
-    model: "claude-opus-4-20250514",
-    max_tokens: 4096,
+  const completion = await groq.chat.completions.create({
+    model: "llama-3.3-70b-versatile",
     messages: [{ role: "user", content: prompt }],
+    temperature: 0.2,
+    max_tokens: 4096,
   });
 
-  onProgress?.(`[OK] Analysis complete`);
+  const text = completion.choices[0]?.message?.content ?? "";
 
-  const text = response.content
-    .filter((b) => b.type === "text")
-    .map((b) => (b as any).text)
-    .join("");
+  onProgress?.(`[OK] Analysis complete`);
 
   const clean = text.replace(/```json\n?|```/g, "").trim();
   const result = JSON.parse(clean) as Omit<RepoReviewResult, "stats">;

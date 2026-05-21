@@ -1,8 +1,21 @@
 {
-  "/not-found": "app/not-found.js",
+  "/_not-found": "app/_not-found.js",
+  "/api/auth/logout/route": "app/api/auth/logout/route.js",
+  "/api/auth/callback/github/route": "app/api/auth/callback/github/route.js",
+  "/api/review/route": "app/api/review/route.js",
+  "/api/auth/login/route": "app/api/auth/login/route.js",
+  "/api/repositories/connect/route": "app/api/repositories/connect/route.js",
+  "/api/webhooks/github/route": "app/api/webhooks/github/route.js",
   "/page": "app/page.js",
+  "/api/repositories/review/route": "app/api/repositories/review/route.js",
   "/login/page": "app/login/page.js",
-  "/(dashboard)/dashboard/page": "app/(dashboard)/dashboard/page.js",
   "/(dashboard)/repositories/page": "app/(dashboard)/repositories/page.js",
-  "/(dashboard)/repositories/[id]/page": "app/(dashboard)/repositories/[id]/page.js"
+  "/(dashboard)/repositories/[id]/page": "app/(dashboard)/repositories/[id]/page.js",
+  "/(dashboard)/reviews/[id]/page": "app/(dashboard)/reviews/[id]/page.js",
+  "/(dashboard)/dashboard/page": "app/(dashboard)/dashboard/page.js",
+  "/(dashboard)/billing/page": "app/(dashboard)/billing/page.js",
+  "/(dashboard)/team/page": "app/(dashboard)/team/page.js",
+  "/(dashboard)/reviews/page": "app/(dashboard)/reviews/page.js",
+  "/(dashboard)/repositories/connect/page": "app/(dashboard)/repositories/connect/page.js",
+  "/(dashboard)/settings/page": "app/(dashboard)/settings/page.js"
 }

@@ -76,10 +76,14 @@ function buildCommentBody(review: any): string {
   const issueLines = review.issues
     .slice(0, 10) // Max 10 issues in comment
     .map((issue: any) => {
-      const icon =
-        { CRITICAL: "🔴", HIGH: "🟠", MEDIUM: "🔵", LOW: "🟢", INFO: "⚪" }[
-          issue.severity
-        ] ?? "⚪";
+      const severityIcons: Record<string, string> = {
+        CRITICAL: "🔴",
+        HIGH: "🟠",
+        MEDIUM: "🔵",
+        LOW: "🟢",
+        INFO: "⚪",
+      };
+      const icon = severityIcons[issue.severity] ?? "⚪";
       const file = issue.filePath
         ? `\`${issue.filePath}${issue.lineStart ? `:${issue.lineStart}` : ""}\``
         : "";
@@ -93,7 +97,7 @@ function buildCommentBody(review: any): string {
     })
     .join("\n\n---\n\n");
 
-  return `## 🤖 ReviewIQ Analysis
+  return `##  ReviewIQ Analysis
 
 ${scoreEmoji} **Overall Score: ${score}/100**
 
@@ -118,8 +122,8 @@ ${scoreBar}
 
 ${
   review.issues.length === 0
-    ? "✅ **No issues found!** This PR looks clean."
-    : `### 🔍 Issues Found\n\n${issueLines}`
+    ? "**No issues found!** This PR looks clean."
+    : `###  Issues Found\n\n${issueLines}`
 }
 
 ${review.issues.length > 10 ? `\n_...and ${review.issues.length - 10} more issues. [View full report](${process.env.NEXT_PUBLIC_APP_URL}/reviews/${review.id})_` : ""}

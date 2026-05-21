@@ -228,7 +228,7 @@ export function RepoReviewClient({
             {[
               { label: "files scanned", value: "up to 30" },
               { label: "avg review time", value: "~15s" },
-              { label: "powered by", value: "claude-opus-4" },
+              { label: "powered by", value: "Gemini 2.0 Flash" },
             ].map((s) => (
               <div key={s.label} className="border border-[#1A1A1A] p-3">
                 <div className="text-[#00FF41] font-bold mb-1">{s.value}</div>

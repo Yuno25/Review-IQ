@@ -1,11 +1,9 @@
-import Anthropic from "@anthropic-ai/sdk";
+import Groq from "groq-sdk";
 import { db } from "@/lib/db";
-import { postReviewComment } from "@/lib/github-comments";
+import { postReviewComment } from "@/lib/github-comment";
 import { IssueSeverity, IssueCategory, ReviewStatus } from "@prisma/client";
 
-export const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY!,
-});
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! });
 
 export interface PRDiff {
   filename: string;
@@ -31,23 +29,23 @@ export interface ReviewResult {
   }[];
 }
 
-const SYSTEM_PROMPT = `You are ReviewIQ, an expert code reviewer. Analyze pull request diffs and return ONLY valid JSON — no markdown, no prose.
+const SYSTEM_PROMPT = `You are ReviewIQ, an expert code reviewer. Analyze pull request diffs and return ONLY valid JSON — no markdown, no backticks, no prose.
 
 JSON schema:
 {
   "summary": "2-4 sentence overview of what this PR does and overall quality",
-  "overallScore": 0-100,
+  "overallScore": number 0-100,
   "issues": [
     {
-      "severity": "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO",
-      "category": "SECURITY" | "PERFORMANCE" | "MAINTAINABILITY" | "BUG" | "STYLE" | "DOCUMENTATION" | "TEST_COVERAGE",
+      "severity": "CRITICAL" or "HIGH" or "MEDIUM" or "LOW" or "INFO",
+      "category": "SECURITY" or "PERFORMANCE" or "MAINTAINABILITY" or "BUG" or "STYLE" or "DOCUMENTATION" or "TEST_COVERAGE",
       "title": "short issue title",
       "description": "clear explanation of the problem",
       "suggestion": "concrete fix",
-      "filePath": "string | null",
-      "lineStart": "number | null",
-      "lineEnd": "number | null",
-      "codeSnippet": "string | null"
+      "filePath": "string or null",
+      "lineStart": number or null,
+      "lineEnd": number or null,
+      "codeSnippet": "string or null"
     }
   ]
 }
@@ -57,7 +55,9 @@ Severity guide:
 - HIGH: bugs, logic errors, major performance issues
 - MEDIUM: missing error handling, minor performance
 - LOW: style issues, naming conventions
-- INFO: suggestions, best practices`;
+- INFO: suggestions, best practices
+
+Return raw JSON only. No backticks. No explanation.`;
 
 function buildPrompt(
   title: string,
@@ -72,10 +72,9 @@ function buildPrompt(
     })
     .join("\n\n");
 
-  return `# Pull Request: ${title}\n**Description:** ${description || "No description"}\n\n${diffText}\n\nReturn JSON analysis only.`;
+  return `# Pull Request: ${title}\nDescription: ${description || "None"}\n\n${diffText}\n\nReturn JSON analysis only.`;
 }
 
-// ─── Check if workspace has premium plan ──────────────────────────────────────
 async function isPremium(workspaceId: string): Promise<boolean> {
   const sub = await db.subscription.findUnique({ where: { workspaceId } });
   return (
@@ -83,7 +82,6 @@ async function isPremium(workspaceId: string): Promise<boolean> {
   );
 }
 
-// ─── Main review function ─────────────────────────────────────────────────────
 export async function runReview(
   reviewId: string,
   prTitle: string,
@@ -101,35 +99,31 @@ export async function runReview(
   try {
     const prompt = buildPrompt(prTitle, prDescription, diffs);
     let fullResponse = "";
-    let tokensUsed = 0;
 
-    const stream = await anthropic.messages.stream({
-      model: "claude-opus-4-20250514",
+    // Stream from Groq
+    const stream = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.2,
       max_tokens: 4096,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: prompt }],
+      stream: true,
     });
 
     for await (const chunk of stream) {
-      if (
-        chunk.type === "content_block_delta" &&
-        chunk.delta.type === "text_delta"
-      ) {
-        fullResponse += chunk.delta.text;
-        onChunk?.(chunk.delta.text);
-      }
+      const text = chunk.choices[0]?.delta?.content ?? "";
+      fullResponse += text;
+      if (text) onChunk?.(text);
     }
 
-    const finalMessage = await stream.finalMessage();
-    tokensUsed =
-      (finalMessage.usage?.input_tokens ?? 0) +
-      (finalMessage.usage?.output_tokens ?? 0);
-
-    const cleanJson = fullResponse.replace(/```json\n?|```/g, "").trim();
-    const result: ReviewResult = JSON.parse(cleanJson);
     const durationMs = Date.now() - startTime;
+    const clean = fullResponse.replace(/```json\n?|```/g, "").trim();
+    const result: ReviewResult = JSON.parse(clean);
+    const tokensUsed =
+      Math.ceil(prompt.length / 4) + Math.ceil(fullResponse.length / 4);
 
-    // Save review + issues
     const updatedReview = await db.review.update({
       where: { id: reviewId },
       data: {
@@ -138,6 +132,7 @@ export async function runReview(
         overallScore: result.overallScore,
         tokensUsed,
         durationMs,
+        modelVersion: "llama-3.3-70b-versatile",
         completedAt: new Date(),
         issues: {
           create: result.issues.map((issue) => ({
@@ -156,7 +151,6 @@ export async function runReview(
       include: { pullRequest: { include: { repository: true } } },
     });
 
-    // Post GitHub comment if workspace is on premium plan
     const premium = await isPremium(
       updatedReview.pullRequest.repository.workspaceId,
     );
@@ -164,8 +158,7 @@ export async function runReview(
       try {
         await postReviewComment(reviewId);
       } catch (e) {
-        console.error("Failed to post GitHub comment:", e);
-        // Non-fatal — review is still saved
+        console.error(e);
       }
     }
 
@@ -184,7 +177,6 @@ export async function runReview(
   }
 }
 
-// ─── Fetch PR diffs from GitHub ───────────────────────────────────────────────
 export async function fetchPRDiffs(
   repoFullName: string,
   prNumber: number,
